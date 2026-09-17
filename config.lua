@@ -33,23 +33,33 @@ Config.Lean = {
 -- ===========================
 Config.QuickThrow = {
     Enabled = true,
-    Cooldown = 1500, -- ms
+    Cooldown = 1500, -- Cooldown between throws in ms
     Key = 'G',
+    RemoveOnEmpty = true, -- Automatically remove weapon from ped when ammo reaches 0
+    DefaultSpeed = 35.0,  -- Default throw velocity if weapon is not explicitly listed below
+
+    -- Known Throwables configuration (custom speed and labels)
     Throwables = {
-        { item = 'WEAPON_GRENADE',      hash = `WEAPON_GRENADE`,      speed = 35.0, label = "Grenade" },
-        { item = 'WEAPON_MOLOTOV',      hash = `WEAPON_MOLOTOV`,      speed = 30.0, label = "Molotov" },
-        { item = 'WEAPON_SMOKEGRENADE', hash = `WEAPON_SMOKEGRENADE`, speed = 35.0, label = "Smoke Grenade" },
-        -- Addon Support
-        { item = 'WEAPON_FLASHBANG', hash = `WEAPON_FLASHBANG`, speed = 35.0, label = "Flashbang" }, 
-        { item = 'WEAPON_SMOK2GRENADE', hash = `WEAPON_SMOK2GRENADE`, speed = 35.0, label = "Smoke Grenade" },
-        -- Placeholder for future addons
-        -- { item = 'item_name', hash = `WEAPON_HASH`, speed = 30.0, label = "Custom" },
-        
-        { item = 'WEAPON_BZGAS',        hash = `WEAPON_BZGAS`,        speed = 35.0, label = "BZ Gas" },
-        { item = 'WEAPON_STICKYBOMB',   hash = `WEAPON_STICKYBOMB`,   speed = 25.0, label = "Sticky Bomb" },
-        { item = 'WEAPON_PIPEBOMB',     hash = `WEAPON_PIPEBOMB`,     speed = 25.0, label = "Pipe Bomb" },
-        { item = 'WEAPON_FLARE',        hash = `WEAPON_FLARE`,        speed = 40.0, label = "Flare" },
+        { hash = `WEAPON_GRENADE`,      speed = 35.0, label = "Grenade" },
+        { hash = `WEAPON_MOLOTOV`,      speed = 30.0, label = "Molotov" },
+        { hash = `WEAPON_SMOKEGRENADE`, speed = 35.0, label = "Smoke Grenade" },
+        { hash = `WEAPON_BZGAS`,        speed = 35.0, label = "BZ Gas" },
+        { hash = `WEAPON_STICKYBOMB`,   speed = 25.0, label = "Sticky Bomb" },
+        { hash = `WEAPON_PIPEBOMB`,     speed = 25.0, label = "Pipe Bomb" },
+        { hash = `WEAPON_FLARE`,        speed = 40.0, label = "Flare" },
+        { hash = `WEAPON_BALL`,         speed = 30.0, label = "Ball" },
+        { hash = `WEAPON_SNOWBALL`,     speed = 30.0, label = "Snowball" },
+
+        -- Addon Weapon Support (Uncomment or add custom addons as needed)
+        { hash = `WEAPON_FLASHBANG`,    speed = 35.0, label = "Flashbang" },
+        { hash = `WEAPON_SMOK2GRENADE`, speed = 35.0, label = "Smoke Grenade" },
     }
 }
 
-
+-- ===========================
+-- NOTIFICATION LOCALES
+-- ===========================
+Config.Locales = {
+    no_throwable = "No throwable weapons available!",
+    cannot_throw = "Cannot throw right now!"
+}

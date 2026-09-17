@@ -4,7 +4,7 @@ lua54 'yes'
 
 author 'GESUS'
 description 'Standalone Tactical Lean & Quick Throw'
-version '1.0.0'
+version '1.1.0'
 
 shared_scripts {
     '@ox_lib/init.lua',
@@ -24,6 +24,5 @@ files {
 }
 
 dependencies {
-    'ox_lib',
-    'ox_inventory'
+    'ox_lib'
 }

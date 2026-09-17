@@ -1,8 +1,8 @@
 # Tactical Lite 🛡️💣
 
-**Tactical Lite** is a lightweight, standalone resource that adds high-quality **Tactical Leaning (Q/E)** and a **Quick Throw (G)** system to your server.
+**Tactical Lite** is a lightweight, framework-standalone resource that adds high-quality **Tactical Leaning (Q/E)** and a **Quick Throw (G)** system to your FiveM server.
 
-It is designed to be purely mechanical and performance-friendly (0.00ms idle), focusing solely on movement and utility without interfering with your existing weapon or recoil scripts.
+It is designed to be purely mechanical and performance-friendly (0.00ms idle), focusing solely on movement and utility without interfering with your existing weapon or recoil scripts. It does not require QBCore, ESX, or custom inventory scripts.
 
 ## ✨ Features
 
@@ -14,47 +14,44 @@ It is designed to be purely mechanical and performance-friendly (0.00ms idle), f
 - **FPS Safe:** Leaning is automatically disabled in First Person View to prevent visual bugs.
 
 ### 💣 Quick Throw (G)
-- **Smart Selection:** Automatically picks the "best" throwable in your inventory (Grenade > Molotov > Smoke, etc.).
-- **Cooldown System:** Prevents grenade spamming.
+- **Base Game Weapon Wheel Integration:** Uses whichever throwable is currently on quick select in your weapon wheel (Grenade, Molotov, Smoke, Sticky Bomb, etc.).
+- **Strict Weapon Wheel Ammo Count:** Strictly checks and decrements native GTA V weapon wheel ammo.
+- **Auto-Cleanup Option:** Automatically removes the weapon from the ped's wheel when ammo reaches 0 (`RemoveOnEmpty`).
 - **Visual Feedback:** Plays a specialized throwing animation while keeping the crosshair active.
-- **Server-Side Security:** Validates item existence server-side before removing it.
+- **Cooldown System:** Prevents grenade spamming.
 
 ## 📦 Dependencies
 
 - [ox_lib](https://github.com/overextended/ox_lib)
-- [ox_inventory](https://github.com/overextended/ox_inventory)
+
+*(No framework dependencies: works standalone without QBCore, ESX, or ox_inventory)*
 
 ## 🛠️ Installation
 
 1. **Download** the resource and place it in your `resources` folder.
 2. **Animation Files:** All required `.ycd` animation files are **already included** in the `stream` folder. No extra downloads required.
-3. Add `ensure tactical_lite` to your `server.cfg`.
+3. Add `ensure Tactical_Lite` to your `server.cfg`.
 4. Configure settings in `config.lua` if needed.
 
 ## ⚙️ Configuration
 
-You can adjust camera offsets, cooldowns, and priority of throwable items in `config.lua`.
+You can adjust camera offsets, cooldowns, custom speeds, and throwable items in `config.lua`:
 
 ```lua
-Config.Lean = {
-    TPV = {
-        lateralOffsetClose = 0.50, -- How far the camera moves sideways
-        cameraRoll = 10.0,         -- Camera tilt angle
-        -- ...
-    }
-}
-
 Config.QuickThrow = {
+    Enabled = true,
+    Cooldown = 1500, -- Cooldown between throws in ms
     Key = 'G',
-    Cooldown = 1500,
+    RemoveOnEmpty = true, -- Automatically remove weapon from ped when ammo reaches 0
+    DefaultSpeed = 35.0,  -- Default throw velocity if weapon is not explicitly listed below
+
     Throwables = {
-        -- Priority List (Top to Bottom)
-        { item = 'WEAPON_GRENADE', hash = `WEAPON_GRENADE`, speed = 35.0 },
-        { item = 'WEAPON_MOLOTOV', hash = `WEAPON_MOLOTOV`, speed = 30.0 },
-        -- ...
+        { hash = `WEAPON_GRENADE`,      speed = 35.0, label = "Grenade" },
+        { hash = `WEAPON_MOLOTOV`,      speed = 30.0, label = "Molotov" },
+        { hash = `WEAPON_SMOKEGRENADE`, speed = 35.0, label = "Smoke Grenade" },
+        -- Add custom / addon weapons here...
     }
 }
-
 ```
 
 ## 👏 Credits

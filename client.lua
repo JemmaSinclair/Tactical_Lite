@@ -230,7 +230,7 @@ AddStateBagChangeHandler('TacticalLean', nil, function(bagName, key, value, _unu
 end)
 
 -- ====================================================================
--- QUICK THROW SYSTEM
+-- QUICK THROW SYSTEM (BASE GAME WEAPON WHEEL & AMMO)
 -- ====================================================================
 local Grenade = {}
 Grenade.lastThrowTime = 0
@@ -239,11 +239,100 @@ local R_HAND_BONE = 28422
 local ANIM_DICT = "weapons@projectile@aim_throw_rifle"
 local ANIM_NAME = "aim_throw_m"
 
-local function GetBestThrowable()
-    for _, cfg in ipairs(Config.QuickThrow.Throwables) do
-        local count = exports.ox_inventory:Search('count', cfg.item) or 0
-        if count > 0 then return cfg end
+local lastSelectedThrowable = nil
+local cachedThrowableSlot = nil
+
+local function GetThrowableSlotIndex()
+    if not cachedThrowableSlot then
+        local slot = GetWeapontypeSlot(`WEAPON_GRENADE`)
+        if slot and slot >= 0 then
+            cachedThrowableSlot = slot
+        else
+            cachedThrowableSlot = 7 -- Fallback to standard GTA V throwable slot
+        end
     end
+    return cachedThrowableSlot
+end
+
+local function IsThrowableWeapon(weaponHash)
+    if not weaponHash or weaponHash == 0 or weaponHash == `WEAPON_UNARMED` then return false end
+    if GetWeapontypeGroup(weaponHash) == `GROUP_THROWN` then
+        return true
+    end
+    for _, cfg in ipairs(Config.QuickThrow.Throwables) do
+        if cfg.hash == weaponHash then
+            return true
+        end
+    end
+    return false
+end
+
+local function GetThrowableConfig(weaponHash)
+    for _, cfg in ipairs(Config.QuickThrow.Throwables) do
+        if cfg.hash == weaponHash then
+            return cfg
+        end
+    end
+    return {
+        hash = weaponHash,
+        speed = Config.QuickThrow.DefaultSpeed or 35.0,
+        label = "Throwable"
+    }
+end
+
+local function UpdateSelectedThrowable(ped)
+    if not DoesEntityExist(ped) then return end
+
+    -- 1. If ped is actively holding a throwable, update tracked selection
+    local currentWeapon = GetSelectedPedWeapon(ped)
+    if IsThrowableWeapon(currentWeapon) and GetAmmoInPedWeapon(ped, currentWeapon) > 0 then
+        lastSelectedThrowable = currentWeapon
+        return
+    end
+
+    -- 2. Query active weapon in weapon wheel throwable slot
+    local slot = GetThrowableSlotIndex()
+    local slotHash = Citizen.InvokeNative(0xA13E93403F26C812, slot) -- _HUD_WEAPON_WHEEL_GET_SLOT_HASH
+    if slotHash and slotHash ~= 0 and IsThrowableWeapon(slotHash) then
+        if HasPedGotWeapon(ped, slotHash, false) and GetAmmoInPedWeapon(ped, slotHash) > 0 then
+            lastSelectedThrowable = slotHash
+        end
+    end
+end
+
+local function GetSelectedThrowable(ped)
+    UpdateSelectedThrowable(ped)
+
+    -- Priority 1: Player currently holding a throwable in hand
+    local currentWeapon = GetSelectedPedWeapon(ped)
+    if IsThrowableWeapon(currentWeapon) and GetAmmoInPedWeapon(ped, currentWeapon) > 0 then
+        lastSelectedThrowable = currentWeapon
+        return GetThrowableConfig(currentWeapon)
+    end
+
+    -- Priority 2: Query active quick select in the weapon wheel throwable slot
+    local slot = GetThrowableSlotIndex()
+    local slotHash = Citizen.InvokeNative(0xA13E93403F26C812, slot)
+    if slotHash and slotHash ~= 0 and IsThrowableWeapon(slotHash) then
+        if HasPedGotWeapon(ped, slotHash, false) and GetAmmoInPedWeapon(ped, slotHash) > 0 then
+            lastSelectedThrowable = slotHash
+            return GetThrowableConfig(slotHash)
+        end
+    end
+
+    -- Priority 3: Tracked last selected throwable (if still possessed with ammo)
+    if lastSelectedThrowable and HasPedGotWeapon(ped, lastSelectedThrowable, false) and GetAmmoInPedWeapon(ped, lastSelectedThrowable) > 0 then
+        return GetThrowableConfig(lastSelectedThrowable)
+    end
+
+    -- Priority 4: Fallback to first available configured throwable with ammo > 0
+    for _, cfg in ipairs(Config.QuickThrow.Throwables) do
+        if HasPedGotWeapon(ped, cfg.hash, false) and GetAmmoInPedWeapon(ped, cfg.hash) > 0 then
+            lastSelectedThrowable = cfg.hash
+            return cfg
+        end
+    end
+
     return nil
 end
 
@@ -271,9 +360,16 @@ local function ProcessQuickThrow()
     if Grenade.isThrowing or not Config.QuickThrow.Enabled or not CanUseTactical() then return end
     if not IsPlayerFreeAiming(PlayerId()) or IsPedInAnyVehicle(ped, false) then return end
 
-    local throwable = GetBestThrowable()
+    local throwable = GetSelectedThrowable(ped)
     if not throwable then
-        return lib.notify({ type = 'error', description = 'ไม่มีอาวุธขว้างในตัว!' })
+        local msg = Config.Locales and Config.Locales.no_throwable or 'No throwable weapons available!'
+        return lib.notify({ type = 'error', description = msg })
+    end
+
+    local currentAmmo = GetAmmoInPedWeapon(ped, throwable.hash)
+    if currentAmmo <= 0 then
+        local msg = Config.Locales and Config.Locales.no_throwable or 'No throwable weapons available!'
+        return lib.notify({ type = 'error', description = msg })
     end
 
     local now = GetGameTimer()
@@ -285,35 +381,51 @@ local function ProcessQuickThrow()
     LocalPlayer.state:set('isTacticalThrowing', true, true)
 
     CreateThread(function()
-        -- Validate with server FIRST before doing anything
-        local canThrow = lib.callback.await('tactical_lite:canThrow', false, throwable.item)
-
-        if not canThrow then
-            lib.notify({ type = 'error', description = 'ไม่สามารถขว้างได้!' })
-            Grenade.isThrowing = false
-            LocalPlayer.state:set('isTacticalThrowing', false, true)
-            return
-        end
-
         RequestAnimDict(ANIM_DICT)
         RequestWeaponAsset(throwable.hash)
         while not (HasAnimDictLoaded(ANIM_DICT) and HasWeaponAssetLoaded(throwable.hash)) do Wait(10) end
 
         TaskPlayAnim(ped, ANIM_DICT, ANIM_NAME, 2.0, -2.0, -1, 48, 0, false, false, false)
-        Wait(400) -- Wait for throw point
+        Wait(400) -- Wait for throw release point
 
         FireNetworkedProjectile(ped, throwable.hash, throwable.speed)
+
+        -- Base game weapon wheel ammo management
+        local ammo = GetAmmoInPedWeapon(ped, throwable.hash)
+        if ammo > 0 then
+            local newAmmo = ammo - 1
+            SetPedAmmo(ped, throwable.hash, newAmmo)
+            if newAmmo <= 0 and Config.QuickThrow.RemoveOnEmpty then
+                RemoveWeaponFromPed(ped, throwable.hash)
+                if lastSelectedThrowable == throwable.hash then
+                    lastSelectedThrowable = nil
+                end
+            end
+        end
 
         Wait(200)
         StopAnimTask(ped, ANIM_DICT, ANIM_NAME, 1.0)
         Grenade.isThrowing = false
         LocalPlayer.state:set('isTacticalThrowing', false, true)
         RemoveAnimDict(ANIM_DICT)
+        RemoveWeaponAsset(throwable.hash)
     end)
 end
 
 RegisterCommand('quick_throw', ProcessQuickThrow, false)
 RegisterKeyMapping('quick_throw', 'Quick Tactical Throw', 'keyboard', Config.QuickThrow.Key)
+
+-- Thread to monitor weapon wheel interactions (Control 37 = TAB)
+CreateThread(function()
+    while true do
+        if IsHudComponentActive(19) or IsControlPressed(0, 37) then
+            UpdateSelectedThrowable(PlayerPedId())
+            Wait(100)
+        else
+            Wait(500)
+        end
+    end
+end)
 
 -- ====================================================================
 -- MAIN LOOP
@@ -332,6 +444,9 @@ CreateThread(function()
         local ped = PlayerPedId()
         local inVehicle = IsPedInAnyVehicle(ped, false)
         local isAiming = IsPlayerFreeAiming(PlayerId()) or IsControlPressed(0, 25)
+
+        -- Track weapon changes
+        UpdateSelectedThrowable(ped)
 
         -- Cleanup if in vehicle
         if inVehicle then
